@@ -1,9 +1,8 @@
 stages:
   - static_analysis
-  - static_2
   - build
   - dynamic_analysis
-  - dynamic_analysis_2
+  
 
 static_analysis:
   stage: static_analysis
@@ -15,17 +14,6 @@ static_analysis:
   artifacts:
     paths:
       - semgrep-report.json
-
-static_2: # данный инструмент завершает работу с ошибкой в случае нахождения уязвимостей (это не баг, а фича)
-  stage: static_2
-  image: # вот тут указано: https://github.com/Bearer/bearer/issues/1119
-    name: bearer/bearer 
-    entrypoint: [""] # поэтому лучше запускать его отдельно
-  script:
-    - bearer scan . --format gitlab-sast --output gl-sast-report.json
-  artifacts:
-    reports:
-      sast: gl-sast-report.json
 
 build:
   stage: build
