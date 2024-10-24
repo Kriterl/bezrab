@@ -1,1 +1,56 @@
+stages:
+  - static_analysis
+  - static_2
+  - build
+  - dynamic_analysis
+  - dynamic_analysis_2
+
+static_analysis:
+  stage: static_analysis
+  image: python:3.12
+  script:
+    - pip install semgrep==1.89
+    - semgrep --config auto . --json > semgrep-report.json
+    - echo "Первая часть статического анализа завершена"
+  artifacts:
+    paths:
+      - semgrep-report.json
+
+static_2: # данный инструмент завершает работу с ошибкой в случае нахождения уязвимостей (это не баг, а фича)
+  stage: static_2
+  image: # вот тут указано: https://github.com/Bearer/bearer/issues/1119
+    name: bearer/bearer 
+    entrypoint: [""] # поэтому лучше запускать его отдельно
+  script:
+    - bearer scan . --format gitlab-sast --output gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker run --name dvna -p 9090:9090 -d appsecco/dvna:sqlite
+    - echo "Сборка прошла успешно"
+
+dynamic_analysis:
+  stage: dynamic_analysis
+  image: ghcr.io/zaproxy/zaproxy:latest
+  dependencies:
+    - build
+  services:
+    - name: docker:dind
+      alias: docker
+  script:
+    - mkdir /zap/wrk
+    - zap-full-scan.py -t "http://dvna:9090" -x zap.xml
+    - mv /zap/wrk/zap.xml zap.xml
+    - echo "Динамический анализ с использованием zap завершён"
+  artifacts:
+    paths:
+      - zap.xml
+
 
